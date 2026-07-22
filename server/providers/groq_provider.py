@@ -18,7 +18,7 @@ class GroqProvider(AIProvider):
 
     def __init__(self):
         self.api_key = os.environ.get("GROQ_API_KEY", "")
-        self.default_model = "llama3-70b-8192"
+        self.default_model = "llama-3.3-70b-versatile"
         self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:

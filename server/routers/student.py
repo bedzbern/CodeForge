@@ -25,7 +25,7 @@ from server.providers.base import AIProvider
 
 router = APIRouter(prefix="/api")
 
-_IP_REGEX = re.compile(r"^192\.168\.1\.\d{1,3}$")
+_IP_REGEX = re.compile(r"^(192\.168\.1\.\d{1,3}|127\.0\.0\.1)$")
 
 
 class AskRequest(BaseModel):

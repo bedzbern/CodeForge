@@ -33,7 +33,7 @@ router = APIRouter(prefix="/api")
 _start_time = time.time()
 
 _TEACHER_IP = os.environ.get("TEACHER_IP", "192.168.1.1")
-_IP_REGEX = re.compile(r"^192\.168\.1\.\d{1,3}$")
+_IP_REGEX = re.compile(r"^(192\.168\.1\.\d{1,3}|127\.0\.0\.1)$")
 
 
 def _require_teacher(request: Request):
