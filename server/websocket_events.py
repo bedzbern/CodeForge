@@ -4,19 +4,32 @@ Socket.IO event handlers for CodeForge.
 Manages real-time communication between the server and teacher dashboard.
 """
 
+import os
+import re
 import socketio
 
 from server.database import SessionLocal
 from server.models import Student, Query
 from server.rule_engine import get_effective_level, set_hint_level, broadcast_level
 
+_TEACHER_IP = os.environ.get("TEACHER_IP", "192.168.1.1")
 
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
+_LAB_IPS = [f"192.168.1.{i}" for i in range(1, 52)]
+
+sio = socketio.AsyncServer(
+    async_mode="asgi",
+    cors_allowed_origins=[f"http://{ip}" for ip in _LAB_IPS] + [f"http://{ip}:5173" for ip in _LAB_IPS],
+)
 
 
 @sio.event
 async def connect(sid, environ):
-    """Handle a new dashboard connection."""
+    """Handle a new dashboard connection. Only teacher PC is allowed."""
+    source_ip = environ.get("HTTP_X_FORWARDED_FOR", environ.get("REMOTE_ADDR", ""))
+
+    if source_ip != _TEACHER_IP:
+        raise socketio.exceptions.ConnectionRefusedError("Teacher access only")
+
     print(f"[Socket.IO] Dashboard connected: {sid}")
 
 
@@ -60,11 +73,11 @@ async def teacher_level_change(sid, data):
     """
     db = SessionLocal()
     try:
-        student_ip = data.get("student_ip")
+        student_ip = data.get("student_ip", "")
         new_level = data.get("new_level")
 
-        if not student_ip or not new_level:
-            await sio.emit("error", {"message": "Missing student_ip or new_level"}, room=sid)
+        if not student_ip or not isinstance(new_level, int) or new_level < 1 or new_level > 5:
+            await sio.emit("error", {"message": "Invalid student_ip or new_level (must be 1-5)"}, room=sid)
             return
 
         rule = set_hint_level(db, student_ip, new_level)
@@ -76,7 +89,7 @@ async def teacher_level_change(sid, data):
             "by": "teacher_dashboard",
         })
     except Exception as e:
-        await sio.emit("error", {"message": str(e)}, room=sid)
+        await sio.emit("error", {"message": "Failed to update level"}, room=sid)
     finally:
         db.close()
 
@@ -90,8 +103,8 @@ async def teacher_broadcast(sid, data):
     db = SessionLocal()
     try:
         new_level = data.get("new_level")
-        if not new_level:
-            await sio.emit("error", {"message": "Missing new_level"}, room=sid)
+        if not isinstance(new_level, int) or new_level < 1 or new_level > 5:
+            await sio.emit("error", {"message": "Invalid new_level (must be 1-5)"}, room=sid)
             return
 
         count = broadcast_level(db, new_level)
@@ -102,7 +115,7 @@ async def teacher_broadcast(sid, data):
             "by": "teacher_broadcast",
         })
     except Exception as e:
-        await sio.emit("error", {"message": str(e)}, room=sid)
+        await sio.emit("error", {"message": "Failed to broadcast level"}, room=sid)
     finally:
         db.close()
 

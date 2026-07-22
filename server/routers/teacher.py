@@ -10,10 +10,12 @@ Handles:
 - GET  /api/health          — server health check
 """
 
+import os
+import re
 import time
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session as DBSession
 
 from server.database import get_db
@@ -30,22 +32,32 @@ router = APIRouter(prefix="/api")
 
 _start_time = time.time()
 
+_TEACHER_IP = os.environ.get("TEACHER_IP", "192.168.1.1")
+_IP_REGEX = re.compile(r"^192\.168\.1\.\d{1,3}$")
+
+
+def _require_teacher(request: Request):
+    """Verify the request originates from the teacher PC."""
+    source_ip = request.client.host if request.client else ""
+    if source_ip != _TEACHER_IP:
+        raise HTTPException(status_code=403, detail="Teacher access only")
+
 
 class LevelChangeRequest(BaseModel):
-    student_ip: str
-    new_level: int
-    session_id: str = ""
+    student_ip: str = Field(..., max_length=45)
+    new_level: int = Field(..., ge=1, le=5)
+    session_id: str = Field(default="", max_length=50)
 
 
 class BroadcastRequest(BaseModel):
-    new_level: int
-    session_id: str = ""
+    new_level: int = Field(..., ge=1, le=5)
+    session_id: str = Field(default="", max_length=50)
 
 
 class UnlockRequest(BaseModel):
-    student_ip: str
-    duration_minutes: int | None = None
-    reason: str = ""
+    student_ip: str = Field(..., max_length=45)
+    duration_minutes: int | None = Field(default=None, ge=1, le=60)
+    reason: str = Field(default="", max_length=500)
 
 
 def _get_active_session_id(db: DBSession) -> str:
@@ -62,8 +74,10 @@ def _get_active_session_id(db: DBSession) -> str:
 
 
 @router.get("/status")
-def get_status(db: DBSession = Depends(get_db)):
+def get_status(request: Request, db: DBSession = Depends(get_db)):
     """Return live status of all students for the teacher dashboard."""
+    _require_teacher(request)
+
     students = db.query(Student).order_by(Student.seat_number).all()
     session_id = _get_active_session_id(db)
 
@@ -73,7 +87,6 @@ def get_status(db: DBSession = Depends(get_db)):
 
     for s in students:
         level = get_effective_level(db, s.ip_address)
-        rule = db.query(Rule).filter(Rule.student_ip == s.ip_address).first()
 
         is_active = (
             s.last_active is not None
@@ -109,14 +122,13 @@ def get_status(db: DBSession = Depends(get_db)):
 
 
 @router.post("/teacher/level")
-def change_level(body: LevelChangeRequest, db: DBSession = Depends(get_db)):
+def change_level(request: Request, body: LevelChangeRequest, db: DBSession = Depends(get_db)):
     """Change a single student's hint level."""
+    _require_teacher(request)
+
     student = db.query(Student).filter(Student.ip_address == body.student_ip).first()
     if not student:
         raise HTTPException(status_code=404, detail="Unknown student IP")
-
-    if body.new_level < 1 or body.new_level > 5:
-        raise HTTPException(status_code=400, detail="Level must be between 1 and 5")
 
     rule = set_hint_level(db, body.student_ip, body.new_level)
 
@@ -137,10 +149,9 @@ def change_level(body: LevelChangeRequest, db: DBSession = Depends(get_db)):
 
 
 @router.post("/teacher/broadcast")
-def broadcast_hint_level(body: BroadcastRequest, db: DBSession = Depends(get_db)):
+def broadcast_hint_level(request: Request, body: BroadcastRequest, db: DBSession = Depends(get_db)):
     """Set all students to the same hint level."""
-    if body.new_level < 1 or body.new_level > 5:
-        raise HTTPException(status_code=400, detail="Level must be between 1 and 5")
+    _require_teacher(request)
 
     count = broadcast_level(db, body.new_level)
 
@@ -159,8 +170,10 @@ def broadcast_hint_level(body: BroadcastRequest, db: DBSession = Depends(get_db)
 
 
 @router.post("/teacher/unlock")
-def unlock_level5(body: UnlockRequest, db: DBSession = Depends(get_db)):
+def unlock_level5(request: Request, body: UnlockRequest, db: DBSession = Depends(get_db)):
     """Temporarily unlock Level 5 for a specific student."""
+    _require_teacher(request)
+
     student = db.query(Student).filter(Student.ip_address == body.student_ip).first()
     if not student:
         raise HTTPException(status_code=404, detail="Unknown student IP")
@@ -184,8 +197,10 @@ def unlock_level5(body: UnlockRequest, db: DBSession = Depends(get_db)):
 
 
 @router.get("/summary")
-def get_summary(session_id: str = "", db: DBSession = Depends(get_db)):
+def get_summary(request: Request, session_id: str = "", db: DBSession = Depends(get_db)):
     """Return end-of-session analytics summary."""
+    _require_teacher(request)
+
     if not session_id:
         session_id = _get_active_session_id(db)
 

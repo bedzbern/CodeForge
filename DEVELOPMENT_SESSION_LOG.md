@@ -31,6 +31,7 @@
 - [x] All 7 REST API endpoints implemented
 - [x] Socket.IO events implemented
 - [x] All 6 AI prompt files created
+- [x] Security audit completed (13 issues found, all critical/high fixed)
 - [ ] Student extension basic UI and HTTP communication
 - [ ] Teacher dashboard basic grid and live updates
 - [ ] End‑to‑end integration tested (3 PCs)
@@ -128,6 +129,62 @@
 
 ---
 
+### Session 3 – 2026-07-22 (Security & Ethics Auditor)
+**What we did:**
+- Performed full security audit of all 15 server source files
+- Found 13 issues (4 critical, 3 high, 3 medium, 3 low)
+- Fixed all critical and high severity issues immediately
+
+**Issues found and fixed:**
+| # | Severity | Issue | File | Fix |
+|---|----------|-------|------|-----|
+| 1 | CRITICAL | IP Spoofing — `body.student_ip` used instead of real HTTP source IP | student.py:83 | Now validates `body.student_ip == request.client.host` |
+| 2 | CRITICAL | No teacher auth — any client can call /teacher/* endpoints | teacher.py | Added `_require_teacher()` IP check (only 192.168.1.1) |
+| 3 | CRITICAL | CORS wildcard `http://192.168.1.*` not valid pattern | main.py:55 | Replaced with explicit IP list (192.168.1.1–51) |
+| 4 | CRITICAL | Socket.IO `cors_allowed_origins="*"` allows any origin | websocket_events.py:14 | Restricted to lab network IPs |
+| 5 | HIGH | Prompt injection — user input concatenated without delimiters | student.py:110 | Added XML-style delimiters + anti-injection system message |
+| 6 | HIGH | No input length limits — unbounded strings | student.py:46-51 | Added max_length to all Pydantic fields |
+| 7 | HIGH | AI error leakage — raw exception returned to client | student.py:124 | Changed to generic "AI provider unavailable" message |
+| 8 | MEDIUM | Level 5 permanent unlock with no cap | rule_engine.py:83 | Added 60-minute max duration cap |
+| 9 | MEDIUM | Unvalidated session_id query param | teacher.py:187 | Added max_length=50 |
+| 10 | MEDIUM | Teacher dashboard accessible to students | teacher.py | All teacher endpoints now require IP auth |
+| 11 | LOW | `__import__("datetime")` hack | rule_engine.py:97 | Replaced with proper `from datetime import timedelta` |
+| 12 | LOW | Unused `rule` variable in get_status | teacher.py:76 | Removed unused query |
+| 13 | LOW | Dead code `filename` variable | student.py:26 | Removed dead code |
+
+**Additional improvements:**
+- Updated base_system.txt with anti-injection instructions
+- Added `.env.example` for configuration reference
+- Added `TEACHER_IP` environment variable for configurable teacher auth
+- Changed CORS methods to only allow GET and POST (was `*`)
+- Added input validation (ge/le) on numeric fields
+- WebSocket error messages no longer leak internal details
+
+**Files changed:**
+- `server/routers/student.py` — IP spoofing fix, prompt injection fix, input limits, error sanitization
+- `server/routers/teacher.py` — Teacher IP auth on all endpoints, input validation, removed dead code
+- `server/main.py` — Explicit CORS origins, restricted methods
+- `server/websocket_events.py` — Teacher-only Socket.IO connections, input validation
+- `server/rule_engine.py` — Proper import, 60-min unlock cap
+- `server/prompts/base_system.txt` — Anti-injection instructions
+- `.env.example` — New file
+
+**Decisions made:**
+- Teacher PC IP configurable via `TEACHER_IP` env var (default: 192.168.1.1)
+- Level 5 unlock capped at 60 minutes maximum
+- Student IP validated against real HTTP source, not request body
+- Socket.IO connections restricted to teacher PC IP only
+
+**Next session tasks:**
+- **Stage 4: Performance Engineer** — Optimise for 3-5 concurrent students
+  - Async connection pooling for AI providers
+  - In-memory rule caching to avoid repeated DB hits
+  - Rate limiter cleanup scheduling
+  - Batch query logging (reduce DB commits)
+  - Prompt file caching at startup
+
+---
+
 *[Add new sessions below using the template.]*
 
 ---
@@ -174,7 +231,7 @@
 11. [x] ~~Implement `server/rate_limiter.py`~~
 12. [x] ~~Implement `server/websocket_events.py`~~
 13. [x] ~~Implement `server/analytics.py`~~
-14. [ ] **Stage 3: Security & Ethics Auditor** — Review server code for vulnerabilities
+14. [x] ~~**Stage 3: Security & Ethics Auditor**~~ — 13 issues found, all critical/high fixed
 15. [ ] **Stage 4: Performance Engineer** — Async patterns, caching, connection pooling
 16. [ ] **Stage 5: QA Lead** — pytest test suite for server
 17. [ ] Scaffold VS Code extension with a sidebar webview

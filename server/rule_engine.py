@@ -5,7 +5,7 @@ Loads per-IP hint levels from the database and enforces them.
 Manages Level 5 unlock state with optional time limits.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session as DBSession
 
 from server.models import Student, Rule
@@ -86,15 +86,17 @@ def unlock_level_5(db: DBSession, ip_address: str, duration_minutes: int | None 
 
     If duration_minutes is provided, Level 5 will auto-lock after that time.
     Otherwise it stays unlocked until the teacher manually locks it.
+    Maximum unlock duration is 60 minutes.
     """
     rule = get_or_create_rule(db, ip_address)
     rule.level_5_unlocked = True
     rule.hint_level = 5
 
     if duration_minutes and duration_minutes > 0:
+        capped = min(duration_minutes, 60)
         rule.unlock_until = datetime.utcnow().replace(
             second=0, microsecond=0
-        ) + __import__("datetime").timedelta(minutes=duration_minutes)
+        ) + timedelta(minutes=capped)
     else:
         rule.unlock_until = None
 

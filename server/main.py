@@ -6,6 +6,7 @@ initialises the database, and registers all API routers.
 """
 
 import os
+import re
 import socketio
 from contextlib import asynccontextmanager
 
@@ -17,6 +18,17 @@ from server.routers import student, teacher
 from server.websocket_events import sio
 from server.providers.groq_provider import GroqProvider
 from server.providers.ollama_provider import OllamaProvider
+
+_LAB_IP_PATTERN = re.compile(r"^192\.168\.1\.\d{1,3}$")
+
+
+def _get_lab_origins() -> list[str]:
+    """Build CORS origins for the lab network."""
+    origins = ["http://localhost:5173"]
+    for i in range(1, 52):
+        origins.append(f"http://192.168.1.{i}")
+        origins.append(f"http://192.168.1.{i}:5173")
+    return origins
 
 
 @asynccontextmanager
@@ -49,13 +61,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://192.168.1.1:5173",
-        "http://192.168.1.*",
-    ],
+    allow_origins=_get_lab_origins(),
+    allow_origin_headers=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
