@@ -33,6 +33,7 @@
 - [x] All 6 AI prompt files created
 - [x] Security audit completed (13 issues found, all critical/high fixed)
 - [x] Performance optimisations applied (prompt cache, rule cache, session cache, timing)
+- [x] Test suite written (6 test files, 50+ test cases)
 - [ ] Student extension basic UI and HTTP communication
 - [ ] Teacher dashboard basic grid and live updates
 - [ ] End‑to‑end integration tested (3 PCs)
@@ -233,6 +234,60 @@
 
 ---
 
+### Session 5 – 2026-07-22 (QA Lead)
+**What we did:**
+- Created comprehensive pytest test suite with 6 test files
+- Created manual test plan for extension and dashboard
+
+**Test files created:**
+
+| File | Tests | Covers |
+|------|-------|--------|
+| `tests/conftest.py` | Fixtures | In-memory DB, mock AI provider, test client |
+| `tests/test_rule_engine.py` | 12 tests | Rule creation, effective level, set/broadcast/unlock, cache |
+| `tests/test_api.py` | 13 tests | /api/ask: valid IPs, spoofing, levels, errors, injection, logging |
+| `tests/test_rate_limiter.py` | 8 tests | Allow/block, timing, cleanup, independent IPs |
+| `tests/test_analytics.py` | 6 tests | Stats, topics, errors, summary text, persistence |
+| `tests/test_teacher_auth.py` | 11 tests | Teacher IP auth on all endpoints, validation |
+| `tests/test_providers.py` | 4 tests | Mock provider, health check, abstract base |
+| `tests/MANUAL_TEST_PLAN.md` | 30+ steps | Extension, dashboard, security, edge cases |
+
+**How to run tests:**
+```bash
+pip install -r server/requirements.txt pytest httpx
+pytest tests/ -v
+```
+
+**Test execution note:** Python is not installed on this development machine (only Windows Store stubs). Tests are written and ready to run once Python 3.10+ is installed.
+
+**Files created:**
+- `tests/__init__.py`
+- `tests/conftest.py`
+- `tests/test_rule_engine.py`
+- `tests/test_api.py`
+- `tests/test_rate_limiter.py`
+- `tests/test_analytics.py`
+- `tests/test_teacher_auth.py`
+- `tests/test_providers.py`
+- `tests/MANUAL_TEST_PLAN.md`
+
+**Decisions made:**
+- In-memory SQLite for test isolation (each test gets fresh DB)
+- MockAIProvider returns predictable responses for assertion
+- Teacher IP configurable via env var, default 192.168.1.1
+- Tests use FastAPI TestClient (no real HTTP server needed)
+- Manual test plan covers 4 categories: Extension, Dashboard, Security, Edge Cases
+
+**Next session tasks:**
+- **Stage 6: Integration Specialist** — Connect all components
+  - Set up VS Code extension scaffold
+  - Set up Teacher Dashboard (React + Vite)
+  - Verify WebSocket events flow end-to-end
+  - Create start.bat / start.sh launch script
+  - End-to-end walkthrough: student asks → server processes → dashboard updates
+
+---
+
 *[Add new sessions below using the template.]*
 
 ---
@@ -281,10 +336,11 @@
 13. [x] ~~Implement `server/analytics.py`~~
 14. [x] ~~**Stage 3: Security & Ethics Auditor**~~ — 13 issues found, all critical/high fixed
 15. [x] ~~**Stage 4: Performance Engineer**~~ — 5 optimisations: prompt cache, rule cache, session cache, rate limiter cleanup, timing middleware
-16. [ ] **Stage 5: QA Lead** — pytest test suite for server
-17. [ ] Scaffold VS Code extension with a sidebar webview
-18. [ ] Set up Teacher Dashboard (React + Vite)
-19. [ ] End-to-end integration testing
+16. [x] ~~**Stage 5: QA Lead**~~ — 6 test files, 50+ test cases, manual test plan
+17. [ ] **Stage 6: Integration Specialist** — Connect extension, server, dashboard
+18. [ ] Scaffold VS Code extension with a sidebar webview
+19. [ ] Set up Teacher Dashboard (React + Vite)
+20. [ ] End-to-end integration testing
 
 ---
 
