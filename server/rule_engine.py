@@ -3,12 +3,43 @@ Rule Engine for CodeForge.
 
 Loads per-IP hint levels from the database and enforces them.
 Manages Level 5 unlock state with optional time limits.
+
+Includes an in-memory TTL cache to avoid repeated DB queries
+for the same IP within a short window.
 """
 
+import time
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session as DBSession
 
 from server.models import Student, Rule
+
+_CACHE_TTL_SECONDS = 10.0
+
+_rule_cache: dict[str, tuple[float, int]] = {}
+
+
+def _cache_get(ip_address: str) -> int | None:
+    """Return cached effective level if still valid, else None."""
+    entry = _rule_cache.get(ip_address)
+    if entry and (time.time() - entry[0]) < _CACHE_TTL_SECONDS:
+        return entry[1]
+    return None
+
+
+def _cache_set(ip_address: str, level: int):
+    """Store an effective level in the cache."""
+    _rule_cache[ip_address] = (time.time(), level)
+
+
+def _cache_invalidate(ip_address: str):
+    """Remove a specific IP from the cache."""
+    _rule_cache.pop(ip_address, None)
+
+
+def _cache_clear():
+    """Clear the entire rule cache."""
+    _rule_cache.clear()
 
 
 def get_or_create_rule(db: DBSession, ip_address: str) -> Rule:
@@ -26,13 +57,18 @@ def get_effective_level(db: DBSession, ip_address: str) -> int:
     """
     Return the hint level that should be applied for this IP.
 
-    If Level 5 is unlocked and the unlock window has not expired, returns 5.
-    Otherwise returns the student's configured hint_level.
+    Uses a short-lived in-memory cache to avoid hitting the DB
+    on every request for the same IP.
     """
+    cached = _cache_get(ip_address)
+    if cached is not None:
+        return cached
+
     rule = get_or_create_rule(db, ip_address)
 
     if rule.level_5_unlocked and rule.unlock_until:
         if datetime.utcnow() < rule.unlock_until:
+            _cache_set(ip_address, 5)
             return 5
         else:
             rule.level_5_unlocked = False
@@ -40,8 +76,10 @@ def get_effective_level(db: DBSession, ip_address: str) -> int:
             db.commit()
 
     if rule.level_5_unlocked and rule.unlock_until is None:
+        _cache_set(ip_address, 5)
         return 5
 
+    _cache_set(ip_address, rule.hint_level)
     return rule.hint_level
 
 
@@ -59,6 +97,7 @@ def set_hint_level(db: DBSession, ip_address: str, level: int) -> Rule:
 
     db.commit()
     db.refresh(rule)
+    _cache_invalidate(ip_address)
     return rule
 
 
@@ -77,6 +116,7 @@ def broadcast_level(db: DBSession, level: int) -> int:
         count += 1
 
     db.commit()
+    _cache_clear()
     return count
 
 
@@ -102,4 +142,5 @@ def unlock_level_5(db: DBSession, ip_address: str, duration_minutes: int | None 
 
     db.commit()
     db.refresh(rule)
+    _cache_invalidate(ip_address)
     return rule

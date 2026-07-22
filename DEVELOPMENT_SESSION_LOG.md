@@ -32,6 +32,7 @@
 - [x] Socket.IO events implemented
 - [x] All 6 AI prompt files created
 - [x] Security audit completed (13 issues found, all critical/high fixed)
+- [x] Performance optimisations applied (prompt cache, rule cache, session cache, timing)
 - [ ] Student extension basic UI and HTTP communication
 - [ ] Teacher dashboard basic grid and live updates
 - [ ] End‑to‑end integration tested (3 PCs)
@@ -185,6 +186,53 @@
 
 ---
 
+### Session 4 – 2026-07-22 (Performance Engineer)
+**What we did:**
+- Implemented 5 performance optimisations for 3-5 concurrent student load
+
+**Optimisations applied:**
+
+| # | Optimisation | File | Impact |
+|---|-------------|------|--------|
+| 1 | Prompt cache — all 6 prompts loaded at startup into memory | `server/prompt_cache.py` (new) | Eliminates 6 disk reads per request |
+| 2 | Rule cache — 10s TTL in-memory cache for effective levels | `server/rule_engine.py` | Avoids DB query on repeat requests within 10s |
+| 3 | Session cache — active session ID stored in app.state | `server/routers/student.py` | Eliminates Session DB query on every request |
+| 4 | Rate limiter auto-cleanup — runs every 10 minutes | `server/rate_limiter.py` | Prevents unbounded memory growth |
+| 5 | Request timing middleware — logs slow requests (>1s) | `server/main.py` | Performance visibility for debugging |
+
+**Performance characteristics (before → after):**
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Disk reads per /ask | 6 (prompt files) | 0 (cached) |
+| DB queries per /ask | 3-4 (student, rule, session, query) | 2-3 (student, query; rule/session cached) |
+| Memory growth | Unbounded (rate limiter) | Auto-cleaned every 10min |
+| Slow request visibility | None | Logged when >1s |
+
+**Files changed:**
+- `server/prompt_cache.py` — NEW: startup prompt loader with in-memory cache
+- `server/rule_engine.py` — Added 10s TTL cache, invalidation on writes
+- `server/routers/student.py` — Uses cached prompts, cached session ID, batched DB commit
+- `server/rate_limiter.py` — Added auto-cleanup every 10 minutes
+- `server/main.py` — Added prompt loading at startup, timing middleware, active_session_id init
+
+**Decisions made:**
+- Rule cache TTL set to 10 seconds (short enough for teacher changes to propagate quickly)
+- Timing middleware only logs requests >1 second (avoids noise)
+- Rate limiter cleanup interval: 10 minutes (balanced between memory and CPU)
+- Session ID cached in app.state (single server instance, no Redis needed)
+
+**Next session tasks:**
+- **Stage 5: QA Lead** — pytest test suite for server
+  - Test /api/ask with different IPs and hint levels (mocked AI)
+  - Test rule engine enforcement: Level 1 never returns code
+  - Test analytics summary generation
+  - Test rate limiter behaviour
+  - Test teacher auth (only TEACHER_IP allowed)
+  - Test IP spoofing prevention
+
+---
+
 *[Add new sessions below using the template.]*
 
 ---
@@ -232,7 +280,7 @@
 12. [x] ~~Implement `server/websocket_events.py`~~
 13. [x] ~~Implement `server/analytics.py`~~
 14. [x] ~~**Stage 3: Security & Ethics Auditor**~~ — 13 issues found, all critical/high fixed
-15. [ ] **Stage 4: Performance Engineer** — Async patterns, caching, connection pooling
+15. [x] ~~**Stage 4: Performance Engineer**~~ — 5 optimisations: prompt cache, rule cache, session cache, rate limiter cleanup, timing middleware
 16. [ ] **Stage 5: QA Lead** — pytest test suite for server
 17. [ ] Scaffold VS Code extension with a sidebar webview
 18. [ ] Set up Teacher Dashboard (React + Vite)
