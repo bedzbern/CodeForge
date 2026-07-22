@@ -39,6 +39,11 @@ _IP_REGEX = re.compile(r"^192\.168\.1\.\d{1,3}$")
 def _require_teacher(request: Request):
     """Verify the request originates from the teacher PC."""
     source_ip = request.client.host if request.client else ""
+
+    forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if forwarded and _IP_REGEX.match(forwarded):
+        source_ip = forwarded
+
     if source_ip != _TEACHER_IP:
         raise HTTPException(status_code=403, detail="Teacher access only")
 

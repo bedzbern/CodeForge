@@ -33,7 +33,7 @@
 - [x] All 6 AI prompt files created
 - [x] Security audit completed (13 issues found, all critical/high fixed)
 - [x] Performance optimisations applied (prompt cache, rule cache, session cache, timing)
-- [x] Test suite written (6 test files, 50+ test cases)
+- [x] Test suite written (6 test files, 59 tests, all passing)
 - [ ] Student extension basic UI and HTTP communication
 - [ ] Teacher dashboard basic grid and live updates
 - [ ] End‑to‑end integration tested (3 PCs)
@@ -258,7 +258,14 @@ pip install -r server/requirements.txt pytest httpx
 pytest tests/ -v
 ```
 
-**Test execution note:** Python is not installed on this development machine (only Windows Store stubs). Tests are written and ready to run once Python 3.10+ is installed.
+**Test execution:** All 59 tests pass. Python 3.12.10 installed via `winget install Python.Python.3.12`.
+
+**Key fixes during debugging:**
+- `conftest.py`: Used `StaticPool` for in-memory SQLite (prevents per-connection isolation)
+- `conftest.py`: Set `app.state.ai_provider` after TestClient lifespan (prevents overwrite by GroqProvider)
+- `conftest.py`: Clear rate limiter between tests, added `close()` to MockAIProvider
+- `main.py`: Removed invalid `allow_origin_headers` from CORS config
+- `routers/student.py` + `routers/teacher.py`: Added `X-Forwarded-For` header fallback for IP detection
 
 **Files created:**
 - `tests/__init__.py`

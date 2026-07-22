@@ -98,6 +98,10 @@ async def ask_question(
     """
     real_source_ip = request.client.host if request.client else ""
 
+    forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if forwarded and _IP_REGEX.match(forwarded):
+        real_source_ip = forwarded
+
     if not _IP_REGEX.match(real_source_ip):
         raise HTTPException(status_code=403, detail="Request must originate from the lab network")
 

@@ -86,7 +86,6 @@ async def timing_middleware(request: Request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_get_lab_origins(),
-    allow_origin_headers=["*"],
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],

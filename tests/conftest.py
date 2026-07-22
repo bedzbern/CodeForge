@@ -14,16 +14,16 @@ import pytest
 from unittest.mock import AsyncMock, patch
 from datetime import date
 
-# Ensure the server package is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from server.database import Base, get_db
 from server.models import Student, Rule, Session, Query
-from server.main import app
 from server.providers.base import AIProvider
+from server.rate_limiter import rate_limiter
 
 
 class MockAIProvider(AIProvider):
@@ -40,6 +40,9 @@ class MockAIProvider(AIProvider):
     async def health_check(self) -> bool:
         return True
 
+    async def close(self):
+        pass
+
 
 @pytest.fixture(scope="function")
 def mock_ai():
@@ -50,7 +53,11 @@ def mock_ai():
 @pytest.fixture(scope="function")
 def db_session():
     """Create an in-memory SQLite database for each test."""
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(bind=engine)
     TestSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = TestSession()
@@ -79,6 +86,8 @@ def db_session():
 @pytest.fixture(scope="function")
 def client(db_session, mock_ai):
     """Provide a FastAPI test client with mocked DB and AI provider."""
+    from fastapi.testclient import TestClient
+    from server.main import app
 
     def _override_get_db():
         try:
@@ -87,11 +96,12 @@ def client(db_session, mock_ai):
             pass
 
     app.dependency_overrides[get_db] = _override_get_db
-    app.state.ai_provider = mock_ai
     app.state.active_session_id = None
 
-    from fastapi.testclient import TestClient
-    with TestClient(app) as c:
+    rate_limiter._last_request.clear()
+
+    with TestClient(app, raise_server_exceptions=False) as c:
+        app.state.ai_provider = mock_ai
         yield c
 
     app.dependency_overrides.clear()

@@ -22,7 +22,7 @@ class TestRateLimiter:
 
     def test_second_request_within_interval_blocked(self):
         limiter = RateLimiter(min_interval_seconds=30.0)
-        limiter.is_allowed("192.18.1.2")
+        limiter.is_allowed("192.168.1.2")
         assert limiter.is_allowed("192.168.1.2") is False
 
     def test_request_after_interval_allowed(self):
