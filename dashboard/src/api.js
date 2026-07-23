@@ -1,20 +1,22 @@
 const SERVER_URL =
   import.meta.env.VITE_SERVER_URL || "http://192.168.1.1:8000";
 
+const API_BASE = import.meta.env.DEV ? "" : SERVER_URL;
+
 export async function fetchStatus() {
-  const res = await fetch(`${SERVER_URL}/api/status`);
+  const res = await fetch(`${API_BASE}/api/status`);
   if (!res.ok) throw new Error(`Status fetch failed: ${res.status}`);
   return res.json();
 }
 
 export async function fetchHealth() {
-  const res = await fetch(`${SERVER_URL}/api/health`);
+  const res = await fetch(`${API_BASE}/api/health`);
   if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
   return res.json();
 }
 
 export async function changeLevel(studentIp, newLevel) {
-  const res = await fetch(`${SERVER_URL}/api/teacher/level`, {
+  const res = await fetch(`${API_BASE}/api/teacher/level`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ student_ip: studentIp, new_level: newLevel }),
@@ -23,7 +25,7 @@ export async function changeLevel(studentIp, newLevel) {
 }
 
 export async function broadcastLevel(newLevel) {
-  const res = await fetch(`${SERVER_URL}/api/teacher/broadcast`, {
+  const res = await fetch(`${API_BASE}/api/teacher/broadcast`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ new_level: newLevel }),
@@ -32,7 +34,7 @@ export async function broadcastLevel(newLevel) {
 }
 
 export async function unlockLevel(studentIp, durationMinutes, reason = "") {
-  const res = await fetch(`${SERVER_URL}/api/teacher/unlock`, {
+  const res = await fetch(`${API_BASE}/api/teacher/unlock`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -46,7 +48,7 @@ export async function unlockLevel(studentIp, durationMinutes, reason = "") {
 
 export async function fetchSummary(sessionId) {
   const params = sessionId ? `?session_id=${sessionId}` : "";
-  const res = await fetch(`${SERVER_URL}/api/summary${params}`);
+  const res = await fetch(`${API_BASE}/api/summary${params}`);
   if (!res.ok) throw new Error(`Summary fetch failed: ${res.status}`);
   return res.json();
 }

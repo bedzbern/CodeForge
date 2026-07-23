@@ -16,9 +16,15 @@ _TEACHER_IP = os.environ.get("TEACHER_IP", "192.168.1.1")
 
 _LAB_IPS = [f"192.168.1.{i}" for i in range(1, 52)]
 
+_cors_origins = (
+    [f"http://{ip}" for ip in _LAB_IPS]
+    + [f"http://{ip}:5173" for ip in _LAB_IPS]
+    + ["http://localhost:5173", "http://127.0.0.1:5173"]
+)
+
 sio = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins=[f"http://{ip}" for ip in _LAB_IPS] + [f"http://{ip}:5173" for ip in _LAB_IPS],
+    cors_allowed_origins=_cors_origins,
 )
 
 
@@ -40,7 +46,7 @@ async def disconnect(sid):
 
 
 @sio.event
-async def request_full_status(sid, data):
+async def request_full_status(sid, data=None):
     """
     Dashboard requests the full current state.
     Returns all student statuses.
@@ -61,6 +67,10 @@ async def request_full_status(sid, data):
                 "total_queries": query_count,
             })
         await sio.emit("full_status", {"students": student_list}, room=sid)
+    except Exception as e:
+        print(f"[Socket.IO] Error in request_full_status: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         db.close()
 

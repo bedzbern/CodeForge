@@ -1,33 +1,23 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useSocket } from "./hooks/useSocket";
 import StudentGrid from "./components/StudentGrid";
 import RulePanel from "./components/RulePanel";
 import SummaryView from "./components/SummaryView";
-import { fetchHealth } from "./api";
 
 export default function App() {
   const [tab, setTab] = useState("grid");
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const { students, setStudents, lastEvent, isConnected, serverStatus, refreshStudents } = useSocket();
-  const [health, setHealth] = useState(null);
+  const [selectedIp, setSelectedIp] = useState(null);
+  const { students, lastEvent, isConnected, refreshStudents } = useSocket();
 
-  const loadStatus = async () => {
-    try {
-      const data = await fetchStatus();
-      setStudents(data.students || []);
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  useEffect(() => {
+    refreshStudents();
+  }, [refreshStudents]);
 
-  const checkHealth = async () => {
-    try {
-      const h = await fetchHealth();
-      setHealth(h);
-    } catch (e) {
-      setHealth({ status: "unreachable" });
-    }
-  };
+  const selectedStudent = students.find((s) => s.ip === selectedIp) || null;
+
+  const handleSelect = useCallback((student) => {
+    setSelectedIp((prev) => (prev === student.ip ? null : student.ip));
+  }, []);
 
   return (
     <>
@@ -84,7 +74,7 @@ export default function App() {
             {selectedStudent && (
               <RulePanel
                 student={selectedStudent}
-                onClose={() => setSelectedStudent(null)}
+                onClose={() => setSelectedIp(null)}
                 onRefresh={refreshStudents}
               />
             )}
@@ -92,7 +82,7 @@ export default function App() {
             <StudentGrid
               students={students}
               selectedStudent={selectedStudent}
-              onSelect={setSelectedStudent}
+              onSelect={handleSelect}
             />
           </>
         )}

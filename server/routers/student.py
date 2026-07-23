@@ -75,9 +75,15 @@ def _get_or_create_session(db: DBSession, app_state) -> Session:
     if session is None:
         today = date.today()
         session_id = f"sess_{today.strftime('%Y%m%d')}_1"
-        session = Session(id=session_id, date=today)
-        db.add(session)
-        db.commit()
+        try:
+            session = Session(id=session_id, date=today)
+            db.add(session)
+            db.commit()
+        except Exception:
+            db.rollback()
+            session = db.query(Session).filter(Session.id == session_id).first()
+            if not session:
+                raise
 
     app_state.active_session_id = session.id
     return session
@@ -124,7 +130,7 @@ async def ask_question(
     if student is None:
         raise HTTPException(status_code=404, detail="Unknown student IP")
 
-    student.last_active = datetime.utcnow()
+    active_session = _get_or_create_session(db, request.app.state)
 
     level = get_effective_level(db, client_ip)
     level_name = LEVEL_NAMES.get(level, "Hint Giver")
@@ -151,7 +157,7 @@ async def ask_question(
     except Exception:
         raise HTTPException(status_code=502, detail="AI provider is temporarily unavailable")
 
-    active_session = _get_or_create_session(db, request.app.state)
+    student.last_active = datetime.utcnow()
 
     query_log = Query(
         student_ip=client_ip,

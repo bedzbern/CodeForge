@@ -72,10 +72,17 @@ def _get_active_session_id(db: DBSession) -> str:
         return session.id
     today = date.today()
     sid = f"sess_{today.strftime('%Y%m%d')}_1"
-    new_session = Session(id=sid, date=today)
-    db.add(new_session)
-    db.commit()
-    return sid
+    try:
+        new_session = Session(id=sid, date=today)
+        db.add(new_session)
+        db.commit()
+        return sid
+    except Exception:
+        db.rollback()
+        existing = db.query(Session).filter(Session.id == sid).first()
+        if existing:
+            return existing.id
+        raise
 
 
 @router.get("/status")
@@ -216,7 +223,7 @@ def get_summary(request: Request, session_id: str = "", db: DBSession = Depends(
         "session_id": session_id,
         "date": date.today().isoformat(),
         "total_questions": stats["total_questions"],
-        "total_students_who Asked": stats["unique_students"],
+        "total_students_who_asked": stats["unique_students"],
         "common_topics": [{"topic": t[0], "count": t[1]} for t in stats["common_topics"]],
         "common_errors": [{"error": e[0], "count": e[1]} for e in stats["common_errors"]],
         "ai_summary": summary,

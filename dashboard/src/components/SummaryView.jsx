@@ -39,7 +39,7 @@ export default function SummaryView() {
         </div>
         <div className="stat">
           <div className="stat-label">Students Who Asked</div>
-          <div className="stat-value">{summary["total_students_who Asked"] || 0}</div>
+          <div className="stat-value">{summary["total_students_who_asked"] || 0}</div>
         </div>
       </div>
 

@@ -30,7 +30,7 @@ from server.prompt_cache import load_prompts
 
 def _get_lab_origins() -> list[str]:
     """Build CORS origins for the lab network."""
-    origins = ["http://localhost:5173"]
+    origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
     for i in range(1, 52):
         origins.append(f"http://192.168.1.{i}")
         origins.append(f"http://192.168.1.{i}:5173")
@@ -95,3 +95,5 @@ app.include_router(student.router)
 app.include_router(teacher.router)
 
 socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
+
+app = socket_app
