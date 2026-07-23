@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useSocket } from "./hooks/useSocket";
 import StudentGrid from "./components/StudentGrid";
 import RulePanel from "./components/RulePanel";
@@ -8,10 +8,6 @@ export default function App() {
   const [tab, setTab] = useState("grid");
   const [selectedIp, setSelectedIp] = useState(null);
   const { students, lastEvent, isConnected, refreshStudents } = useSocket();
-
-  useEffect(() => {
-    refreshStudents();
-  }, [refreshStudents]);
 
   const selectedStudent = students.find((s) => s.ip === selectedIp) || null;
 
