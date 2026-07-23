@@ -11,7 +11,7 @@ class AIProvider(ABC):
     """Abstract base class for AI backends."""
 
     @abstractmethod
-    async def generate(self, messages: list[dict], model: str | None = None) -> str:
+    async def generate(self, messages: list[dict], model: str | None = None, max_tokens: int = 512) -> str:
         """Send a list of chat messages and return the AI response text."""
         ...
 

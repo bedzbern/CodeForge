@@ -9,7 +9,7 @@ for the same IP within a short window.
 """
 
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session as DBSession
 
 from server.models import Student, Rule
@@ -67,7 +67,7 @@ def get_effective_level(db: DBSession, ip_address: str) -> int:
     rule = get_or_create_rule(db, ip_address)
 
     if rule.level_5_unlocked and rule.unlock_until:
-        if datetime.utcnow() < rule.unlock_until:
+        if datetime.now(timezone.utc).replace(tzinfo=None) < rule.unlock_until:
             _cache_set(ip_address, 5)
             return 5
         else:
@@ -134,7 +134,7 @@ def unlock_level_5(db: DBSession, ip_address: str, duration_minutes: int | None 
 
     if duration_minutes and duration_minutes > 0:
         capped = min(duration_minutes, 60)
-        rule.unlock_until = datetime.utcnow().replace(
+        rule.unlock_until = datetime.now(timezone.utc).replace(tzinfo=None).replace(
             second=0, microsecond=0
         ) + timedelta(minutes=capped)
     else:

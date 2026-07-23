@@ -231,5 +231,9 @@ The system is designed for 3-50 concurrent students. With Groq (cloud), response
 | Student gets "Unknown student IP" | Their computer isn't registered. Run the registration script above |
 | Student gets "Too many requests" | They're asking too fast. Wait 30 seconds |
 | AI responses are slow | If using Groq: check internet. If using Ollama: expected without GPU |
-| Dashboard shows no students | No students have asked questions yet, or the database is empty |
+| Dashboard shows 0 students | No students have asked questions yet, or the database is empty. Students appear once they submit their first question |
+| Dashboard connected but grid is empty | Do a hard refresh (Ctrl+Shift+R). If that fails, restart both the server and dashboard |
+| Seats never show as "active" | Students are only marked active for 5 minutes after their last question. Ask a test question to wake them up |
+| "Teacher access only" error from dashboard | The `TEACHER_IP` environment variable must match your machine's IP. For local testing use `127.0.0.1` |
+| Session Summary shows "Failed to load" | The teacher IP check is failing. Ensure `TEACHER_IP` matches your machine's IP |
 | "Connection refused" from student | Student and teacher PCs are not on the same network |

@@ -10,13 +10,15 @@ Handles:
 - GET  /api/health          — server health check
 """
 
+import json
 import os
 import re
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session as DBSession
+from sqlalchemy import func
 
 from server.database import get_db
 from server.models import Student, Rule, Query, Session, AuditLog
@@ -93,23 +95,47 @@ def get_status(request: Request, db: DBSession = Depends(get_db)):
     students = db.query(Student).order_by(Student.seat_number).all()
     session_id = _get_active_session_id(db)
 
+    ips = [s.ip_address for s in students]
+
+    rules = {}
+    if ips:
+        for r in db.query(Rule).filter(Rule.student_ip.in_(ips)).all():
+            rules[r.student_ip] = r
+
+    query_counts = {}
+    if ips:
+        rows = (
+            db.query(Query.student_ip, func.count(Query.id))
+            .filter(Query.session_id == session_id, Query.student_ip.in_(ips))
+            .group_by(Query.student_ip)
+            .all()
+        )
+        query_counts = {row[0]: row[1] for row in rows}
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
     student_list = []
     active_count = 0
     idle_count = 0
 
     for s in students:
-        level = get_effective_level(db, s.ip_address)
+        rule = rules.get(s.ip_address)
+        if rule:
+            if rule.level_5_unlocked and rule.unlock_until and now < rule.unlock_until:
+                level = 5
+            elif rule.level_5_unlocked and rule.unlock_until is None:
+                level = 5
+            else:
+                level = rule.hint_level
+        else:
+            level = 2
 
         is_active = (
             s.last_active is not None
-            and (datetime.utcnow() - s.last_active).total_seconds() < 300
+            and (now - s.last_active).total_seconds() < 300
         )
 
-        query_count = (
-            db.query(Query)
-            .filter(Query.session_id == session_id, Query.student_ip == s.ip_address)
-            .count()
-        )
+        query_count = query_counts.get(s.ip_address, 0)
 
         student_list.append({
             "ip": s.ip_address,
@@ -148,7 +174,7 @@ def change_level(request: Request, body: LevelChangeRequest, db: DBSession = Dep
         action="level_change",
         actor="teacher_dashboard",
         target_ip=body.student_ip,
-        details=f'{{"new_level": {body.new_level}}}',
+        details=json.dumps({"new_level": body.new_level}),
     ))
     db.commit()
 
@@ -170,7 +196,7 @@ def broadcast_hint_level(request: Request, body: BroadcastRequest, db: DBSession
     db.add(AuditLog(
         action="broadcast",
         actor="teacher_dashboard",
-        details=f'{{"new_level": {body.new_level}, "affected": {count}}}',
+        details=json.dumps({"new_level": body.new_level, "affected": count}),
     ))
     db.commit()
 
@@ -196,7 +222,7 @@ def unlock_level5(request: Request, body: UnlockRequest, db: DBSession = Depends
         action="unlock",
         actor="teacher_dashboard",
         target_ip=body.student_ip,
-        details=f'{{"duration_minutes": {body.duration_minutes}, "reason": "{body.reason}"}}',
+        details=json.dumps({"duration_minutes": body.duration_minutes, "reason": body.reason}),
     ))
     db.commit()
 

@@ -11,7 +11,7 @@ Performance notes:
 """
 
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, Request, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session as DBSession
@@ -153,11 +153,12 @@ async def ask_question(
 
     provider: AIProvider = request.app.state.ai_provider
     try:
-        ai_response = await provider.generate(messages)
+        output_tokens = 1024 if level >= 5 else 512
+        ai_response = await provider.generate(messages, max_tokens=output_tokens)
     except Exception:
         raise HTTPException(status_code=502, detail="AI provider is temporarily unavailable")
 
-    student.last_active = datetime.utcnow()
+    student.last_active = datetime.now(timezone.utc).replace(tzinfo=None)
 
     query_log = Query(
         student_ip=client_ip,
@@ -178,5 +179,5 @@ async def ask_question(
         level_name=level_name,
         response=ai_response,
         ip=client_ip,
-        timestamp=datetime.utcnow().isoformat() + "Z",
+        timestamp=datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
     )

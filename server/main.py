@@ -16,6 +16,9 @@ import re
 import time
 import socketio
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -93,6 +96,8 @@ app.add_middleware(
 
 app.include_router(student.router)
 app.include_router(teacher.router)
+
+fastapi_app = app
 
 socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
 

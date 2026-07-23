@@ -33,7 +33,7 @@ class MockAIProvider(AIProvider):
         self.response = response
         self.last_messages = []
 
-    async def generate(self, messages: list[dict], model: str | None = None) -> str:
+    async def generate(self, messages: list[dict], model: str | None = None, max_tokens: int = 512) -> str:
         self.last_messages = messages
         return self.response
 
@@ -87,7 +87,7 @@ def db_session():
 def client(db_session, mock_ai):
     """Provide a FastAPI test client with mocked DB and AI provider."""
     from fastapi.testclient import TestClient
-    from server.main import app
+    from server.main import fastapi_app as app
 
     def _override_get_db():
         try:

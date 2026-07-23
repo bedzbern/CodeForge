@@ -9,7 +9,7 @@ import re
 import socketio
 
 from server.database import SessionLocal
-from server.models import Student, Query
+from server.models import Student, Rule, Query
 from server.rule_engine import get_effective_level, set_hint_level, broadcast_level
 
 _TEACHER_IP = os.environ.get("TEACHER_IP", "192.168.1.1")
@@ -54,17 +54,35 @@ async def request_full_status(sid, data=None):
     db = SessionLocal()
     try:
         students = db.query(Student).order_by(Student.seat_number).all()
+        ips = [s.ip_address for s in students]
+
+        rules = {}
+        if ips:
+            for r in db.query(Rule).filter(Rule.student_ip.in_(ips)).all():
+                rules[r.student_ip] = r
+
+        query_counts = {}
+        if ips:
+            from sqlalchemy import func
+            rows = (
+                db.query(Query.student_ip, func.count(Query.id))
+                .group_by(Query.student_ip)
+                .all()
+            )
+            query_counts = {row[0]: row[1] for row in rows}
+
         student_list = []
         for s in students:
-            level = get_effective_level(db, s.ip_address)
-            query_count = db.query(Query).filter(
-                Query.student_ip == s.ip_address
-            ).count()
+            rule = rules.get(s.ip_address)
+            if rule:
+                level = 5 if rule.level_5_unlocked else rule.hint_level
+            else:
+                level = 2
             student_list.append({
                 "ip": s.ip_address,
                 "seat_number": s.seat_number,
                 "hint_level": level,
-                "total_queries": query_count,
+                "total_queries": query_counts.get(s.ip_address, 0),
             })
         await sio.emit("full_status", {"students": student_list}, room=sid)
     except Exception as e:

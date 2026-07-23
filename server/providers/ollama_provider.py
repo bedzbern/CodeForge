@@ -25,7 +25,7 @@ class OllamaProvider(AIProvider):
             self._client = httpx.AsyncClient(timeout=60.0)
         return self._client
 
-    async def generate(self, messages: list[dict], model: str | None = None) -> str:
+    async def generate(self, messages: list[dict], model: str | None = None, max_tokens: int = 512) -> str:
         """Send chat messages to Ollama and return the response text."""
         client = await self._get_client()
 

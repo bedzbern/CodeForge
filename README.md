@@ -103,6 +103,8 @@ cd dashboard && npm run dev
 
 Dashboard opens at `http://localhost:5173`.
 
+> **Local testing:** For testing on a single machine, set `TEACHER_IP=127.0.0.1` before starting the server. The dashboard will connect to `localhost` automatically via the Vite dev proxy.
+
 ---
 
 ## Demo Setup (3 Students)
@@ -357,8 +359,10 @@ GET /api/summary?session_id=sess_20260722_1
 
 ### Dashboard shows no data
 
-- **"Disconnected"** — Server is not running, or CORS is blocking. Check `http://192.168.1.1:8000/api/health`
-- **Empty grid** — No students registered. Run the registration script above
+- **"Disconnected"** — Server is not running, or Socket.IO is blocked. Check `http://192.168.1.1:8000/api/health`
+- **Empty grid** — No students registered. Run the registration script above. Students only appear after they ask at least one question.
+- **Connected but 0 students** — The dashboard fetches data on page load. Make sure `TEACHER_IP` is set to your machine's IP (e.g., `127.0.0.1` for local testing, `192.168.1.1` for lab). A hard refresh (Ctrl+Shift+R) may be needed after server restarts.
+- **Seats show but never "active"** — Students are marked active only within 5 minutes of their last query. Send a test question to wake a seat up.
 
 ### AI responses are slow
 

@@ -39,7 +39,7 @@
 - [x] End‑to‑end integration tested (3 PCs)
 - [ ] Session summary feature verified live (needs real hardware)
 
-*Last updated: 2026-07-22 (all 59 tests passing, Stage 6 complete)*
+*Last updated: 2026-07-23 (Session 9 complete — targeted quality fixes)*
 
 ---
 
@@ -372,9 +372,73 @@ The complete data flow verified:
 - `README.md` — Full project documentation (setup, demo, API, troubleshooting)
 - `docs/user_guide.md` — Teacher's guide (dashboard, levels, registration, FAQ)
 
-**Next session tasks:**
-- Project is feature-complete across all 7 expert stages
-- Optional: Stage 8 could be a polish pass (error handling edge cases, deployment packaging)
+---
+
+### Session 8 – 2026-07-23 (Live Testing & Integration Fixes)
+**What we did:**
+- Live-tested the full stack: server + dashboard + Socket.IO in a single-machine setup
+- Fixed 7 critical integration bugs that only surfaced during real runtime
+
+**Bugs found and fixed:**
+
+| # | Bug | Root Cause | Fix |
+|---|-----|-----------|-----|
+| 1 | Socket.IO returns 403 Forbidden | `app = socket_app` never mounted — uvicorn served FastAPI directly, bypassing Socket.IO | Added `app = socket_app` so uvicorn serves the Socket.IO ASGI wrapper |
+| 2 | Socket.IO CORS rejects dashboard | Socket.IO `cors_allowed_origins` didn't include localhost/127.0.0.1 | Added `http://localhost:5173` and `http://127.0.0.1:5173` to Socket.IO CORS |
+| 3 | Dashboard shows "Disconnected" | FastAPI CORS origins didn't include `127.0.0.1:5173` | Added to `_get_lab_origins()` |
+| 4 | Dashboard shows 0 students | No `useEffect` call to `refreshStudents()` on App mount, and no `full_status` Socket.IO listener | Added useEffect + full_status listener with field mapping |
+| 5 | `/api/status` crashes with 500 | `_get_active_session_id` UNIQUE constraint race — SQLite couldn't find existing session, tried to create duplicate | Added try/except with rollback-and-refetch fallback |
+| 6 | Student always shows "idle" | `_get_or_create_session` rollback wiped `student.last_active` set earlier in same request | Moved session lookup before student.last_active update |
+| 7 | Summary shows 0 students who asked | Key name typo `"total_students_who Asked"` (space) | Fixed to `"total_students_who_asked"` |
+
+**Additional changes:**
+- Dashboard API client switched to relative URLs (proxied through Vite dev server) to avoid cross-origin issues entirely
+- Server and Socket.IO both now accept localhost for local testing with `TEACHER_IP=127.0.0.1`
+
+**Files changed:**
+- `server/main.py` — Socket.IO ASGI mounting, localhost CORS
+- `server/websocket_events.py` — Socket.IO CORS, full_status error logging
+- `server/routers/student.py` — Session lookup ordering
+- `server/routers/teacher.py` — Session creation race fix, summary key fix
+- `dashboard/src/App.jsx` — useEffect for refreshStudents
+- `dashboard/src/hooks/useSocket.js` — full_status listener, relative URLs
+- `dashboard/src/api.js` — Vite proxy relative URLs
+- `dashboard/src/components/SummaryView.jsx` — Key name fix
+
+---
+
+### Session 9 – 2026-07-23 (Targeted Quality Fix Round)
+**What we did:**
+- Performed full codebase audit (3 critical, 7 high, 16 medium issues found)
+- Executed 5 highest-impact fixes based on audit findings
+- All 59 tests passing after changes
+
+**Fixes applied:**
+
+| # | Fix | Impact | Files |
+|---|-----|--------|-------|
+| 1 | `datetime.utcnow()` → `datetime.now(timezone.utc).replace(tzinfo=None)` in 6 locations | Prevents Python 3.12+ deprecation errors (returns naive datetime for DB compat) | student.py, teacher.py, rule_engine.py, analytics.py |
+| 2 | Added `python-dotenv` + `load_dotenv()` | `.env` files now load automatically — easier configuration | main.py, requirements.txt |
+| 3 | N+1 query fix in `/api/status` and `request_full_status` | Bulk-fetch all rules + query counts in 2 queries instead of 2N (100 queries for 50 students → 2) | teacher.py, websocket_events.py |
+| 4 | `json.dumps()` for audit log details | Prevents malformed JSON when teacher reason contains quotes/backslashes | teacher.py |
+| 5 | `max_tokens` by level (1024 for L5, 512 for others) | Level 5 full-code answers no longer get truncated at 512 tokens | base.py, groq_provider.py, ollama_provider.py, student.py |
+
+**Test infrastructure fix:**
+- `conftest.py`: Import `fastapi_app` instead of `app` (Socket.IO wrapper broke `dependency_overrides`)
+- `conftest.py`: MockAIProvider `generate()` signature updated for `max_tokens` param
+
+**Files changed:**
+- `server/main.py` — load_dotenv(), fastapi_app export
+- `server/routers/student.py` — datetime fix, max_tokens by level
+- `server/routers/teacher.py` — datetime fix, json.dumps for audit, bulk queries in /status
+- `server/rule_engine.py` — datetime fix
+- `server/analytics.py` — datetime fix
+- `server/websocket_events.py` — bulk queries in request_full_status
+- `server/providers/base.py` — max_tokens parameter
+- `server/providers/groq_provider.py` — max_tokens parameter
+- `server/providers/ollama_provider.py` — max_tokens parameter
+- `server/requirements.txt` — python-dotenv added
+- `tests/conftest.py` — fastapi_app import, MockAIProvider signature
 
 ---
 

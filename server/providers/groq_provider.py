@@ -26,7 +26,7 @@ class GroqProvider(AIProvider):
             self._client = httpx.AsyncClient(timeout=30.0)
         return self._client
 
-    async def generate(self, messages: list[dict], model: str | None = None) -> str:
+    async def generate(self, messages: list[dict], model: str | None = None, max_tokens: int = 512) -> str:
         """Send chat messages to Groq and return the response text."""
         if not self.api_key:
             raise RuntimeError("GROQ_API_KEY environment variable is not set")
@@ -36,7 +36,7 @@ class GroqProvider(AIProvider):
             "model": model or self.default_model,
             "messages": messages,
             "temperature": 0.7,
-            "max_tokens": 512,
+            "max_tokens": max_tokens,
         }
         headers = {
             "Authorization": f"Bearer {self.api_key}",

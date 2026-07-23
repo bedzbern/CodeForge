@@ -5,7 +5,7 @@ Generates end-of-session summaries by analysing query logs.
 """
 
 from collections import Counter
-from datetime import date
+from datetime import date, datetime, timezone
 from sqlalchemy.orm import Session as DBSession
 
 from server.models import Query, Session
@@ -117,7 +117,7 @@ def create_session_summary(db: DBSession, session_id: str) -> str:
     if session:
         session.summary_text = summary
         from datetime import datetime
-        session.ended_at = datetime.utcnow()
+        session.ended_at = datetime.now(timezone.utc).replace(tzinfo=None)
         db.commit()
 
     return summary
